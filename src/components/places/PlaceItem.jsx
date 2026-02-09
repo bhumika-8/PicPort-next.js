@@ -1,0 +1,96 @@
+import React, { useState, useContext } from "react";
+import "./PlaceItem.css";
+import Button from "../shared/UIelements/Button";
+import Modal from "../shared/UIelements/Modal";
+import Map from "../shared/UIelements/Map";
+import { AuthContext } from "../../context/auth-context";
+import { useHttpClient } from "../../hooks/http-hook";
+import ErrorModal from "../shared/UIelements/ErrorModal";
+import LoadingSpinner from "../shared/UIelements/LoadingSpinner";
+
+const PlaceItem = (props) => {
+  const auth = useContext(AuthContext);
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+  const [showMap, setShowMap] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const openMap = () => setShowMap(true);
+  const closeMap = () => setShowMap(false);
+
+  const showDeleteWarnHandler = () => {
+    setShowConfirmModal(true);
+  };
+
+  const cancelDeleteHandler = () => {
+    setShowConfirmModal(false);
+  };
+
+  const confirmDeleteHandler = async () => {
+    setShowConfirmModal(false);
+    try {
+      await sendRequest(
+        `${BACKEND_URL}/api/places/${props.id}`,
+        "DELETE",
+        null,
+        {
+          Authorization: "Bearer " + auth.token 
+        }
+      );
+      props.onDelete(props.id); 
+    } catch (err) {}
+  };
+
+  return (
+    <React.Fragment>
+      <ErrorModal error={error} onClear={clearError} />
+
+      <Modal
+        show={showMap}
+        onCancel={closeMap}
+        header={props.address}
+        contentClass="place-item__modal-content"
+        footerClass="place-item___modal-footer"
+        footer={<Button onClick={closeMap}>Close</Button>}
+      >
+        <Map center={props.coordinates} zoom={14} />
+      </Modal>
+
+      <Modal
+        show={showConfirmModal}
+        onCancel={cancelDeleteHandler}
+        header="Are you sure?"
+        footerClass="place-item__modal-actions"
+        footer={
+          <React.Fragment>
+            <Button inverse onClick={cancelDeleteHandler}>Cancel</Button>
+            <Button danger onClick={confirmDeleteHandler}>DELETE</Button>
+          </React.Fragment>
+        }
+      >
+        <p>Do you want to proceed and delete this place? Please note that this action cannot be undone!</p>
+      </Modal>
+
+      <li className="place-item">
+        {isLoading && <LoadingSpinner asOverlay />}
+        <div className="place-item-container">
+          <div className="place-item__image">
+            <img src={`${props.image}`} alt={props.title} />
+          </div>
+          <div className="place-item__info">
+            <h2>{props.title}</h2>
+            <h3>{props.address}</h3>
+            <p>{props.description}</p>
+          </div>
+          <div className="place-item__actions">
+            <Button inverse onClick={openMap}> View On Map</Button>
+            {auth.userId === props.creatorId && (<Button to={`/places/${props.id}`}>Edit</Button>)}
+            {auth.userId === props.creatorId && (<Button danger onClick={showDeleteWarnHandler}>Delete</Button>)}
+          </div>
+        </div>
+      </li>
+    </React.Fragment>
+  );
+};
+
+export default PlaceItem;
